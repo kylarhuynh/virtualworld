@@ -1,0 +1,97 @@
+import processing.core.PImage;
+
+import java.util.List;
+
+public class Sapling implements AnimatedEntity, ActivityEntity{
+
+    private String id;
+    private Point position;
+    private List<PImage> images;
+    private int imageIndex;
+    private double actionPeriod;
+    private double animationPeriod;
+    private int health;
+    private int healthLimit;
+    private final String STUMP_KEY = "stump";
+    private final String TREE_KEY = "tree";
+
+    public Sapling(String id, Point position, List<PImage> images, int health){
+        this.id = id;
+        this.position = position;
+        this.images = images;
+        this.health = health;
+    }
+
+    public void scheduleActions(EventScheduler scheduler, WorldModel world, ImageStore imageStore) {
+        scheduler.scheduleEvent(this, createActivityAction(world, imageStore), this.actionPeriod);
+        scheduler.scheduleEvent(this, createAnimationAction(0), getAnimationPeriod());
+    }
+
+    public Action createActivityAction(WorldModel world, ImageStore imageStore) {
+        return new Activity(this, world, imageStore);
+    }
+
+    public void executeActivity(WorldModel world, ImageStore imageStore, EventScheduler scheduler) {
+        this.health++;
+        if (!transformSapling(world, scheduler, imageStore)) {
+            scheduler.scheduleEvent(this, createActivityAction(world, imageStore), this.actionPeriod);
+        }
+    }
+
+    public double getAnimationPeriod() {
+        return this.animationPeriod;
+    }
+
+    public void nextImage() {
+        this.imageIndex = this.imageIndex + 1;
+    }
+
+    public Action createAnimationAction(int repeatCount) {
+        return new Animation(this, repeatCount);
+    }
+
+    public PImage getCurrentImage() {
+        return this.images.get(this.imageIndex % this.images.size());
+    }
+
+    public String log() {
+        return this.id.isEmpty() ? null :
+                String.format("%s %d %d %d", this.id, this.position.x, this.position.y, this.imageIndex);
+    }
+
+    public Point getPosition() {
+        return this.position;
+    }
+
+    public String getid() {
+        return this.id;
+    }
+
+    public boolean transformSapling(WorldModel world, EventScheduler scheduler, ImageStore imageStore) {
+        if (this.health <= 0) {
+            Stump stump = EntityFactory.createStump(STUMP_KEY + "_" + this.id, this.position, imageStore.getImageList(STUMP_KEY));
+
+            world.removeEntity(scheduler, this);
+
+            world.addEntity(stump);
+
+            return true;
+        } else if (this.health >= this.healthLimit) {
+            Tree tree = EntityFactory.createTree(TREE_KEY + "_" + id, position, Functions.getNumFromRange(1.400, 1.000), Functions.getNumFromRange(0.600, 0.050), Functions.getIntFromRange(3, 1), imageStore.getImageList(TREE_KEY));
+
+            world.removeEntity(scheduler, this);
+
+            world.addEntity(tree);
+            tree.scheduleActions(scheduler, world, imageStore);
+
+            return true;
+        }
+
+        return false;
+    }
+
+    public void setHealth(int x){
+        this.health = x;
+    }
+
+}
